@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Control de Asistencia | Andalucia Tours</title>
+    <meta name="description" content="Sistema biométrico de control de asistencia para Andalucia Tours">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+    <!-- ===== HEADER ===== -->
+    <header id="app-header">
+        <div class="header-inner">
+            <div class="header-brand">
+                <div class="brand-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1>Control de Asistencia</h1>
+                    <span class="header-subtitle">Andalucia Tours</span>
+                </div>
+            </div>
+            <div class="header-actions">
+                <div class="month-selector">
+                    <label for="selectMonth">Periodo:</label>
+                     <select id="selectMonth"></select>
+                    <select id="selectYear"></select>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ===== STEP INDICATOR ===== -->
+    <nav id="step-nav">
+        <div class="step-nav-inner">
+            <button class="step-tab active" data-step="1">
+                <span class="step-number">1</span>
+                <span class="step-label">Configuración</span>
+            </button>
+            <div class="step-connector"></div>
+            <button class="step-tab" data-step="2">
+                <span class="step-number">2</span>
+                <span class="step-label">Cargar PDF</span>
+            </button>
+            <div class="step-connector"></div>
+            <button class="step-tab" data-step="3">
+                <span class="step-number">3</span>
+                <span class="step-label">Registros</span>
+            </button>
+            <div class="step-connector"></div>
+            <button class="step-tab" data-step="4">
+                <span class="step-number">4</span>
+                <span class="step-label">Reporte</span>
+            </button>
+        </div>
+    </nav>
+
+    <main id="app-main">
+        <!-- ===== STEP 1: CONFIGURACIÓN ===== -->
+        <section id="step-1" class="step-section active">
+            <div class="section-header">
+                <h2>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    Personal y Horarios
+                </h2>
+                <p class="section-desc">Configure los empleados, sus horarios de atención y la tolerancia de retraso.</p>
+            </div>
+
+            <!-- Tolerance and Format -->
+            <div class="config-bar">
+                <div class="config-group" style="display: flex; gap: 20px; flex-wrap: wrap;">
+                    <div class="tolerance-control">
+                        <label for="toleranceInput">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            Tolerancia (min):
+                        </label>
+                        <div class="input-group">
+                            <input type="number" id="toleranceInput" value="5" min="0" max="60">
+                        </div>
+                    </div>
+                    <div class="tolerance-control">
+                        <label for="dateFormatSelect">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                            Formato Fecha:
+                        </label>
+                        <select id="dateFormatSelect" class="input-suffix" style="border-radius: var(--radius-sm); padding-left: 10px; cursor: pointer;">
+                            <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                            <option value="DD-MM-YYYY">DD-MM-YYYY</option>
+                            <option value="MM-DD-YYYY">MM-DD-YYYY</option>
+                        </select>
+                    </div>
+                </div>
+                <button id="btnAddEmployee" class="btn btn-secondary">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Agregar Empleado
+                </button>
+            </div>
+
+            <!-- Employee Cards Grid -->
+            <div id="employeeGrid" class="employee-grid">
+                <!-- Cards rendered by JS -->
+            </div>
+
+            <div class="step-actions">
+                <button class="btn btn-primary btn-next" data-next="2">
+                    Continuar a Carga de PDF
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </button>
+            </div>
+        </section>
+
+        <!-- ===== STEP 2: CARGAR PDF ===== -->
+        <section id="step-2" class="step-section">
+            <div class="section-header">
+                <h2>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    Cargar PDF y Extraer Datos
+                </h2>
+                <p class="section-desc">Suba el reporte PDF de CrossChex y seleccione las regiones de datos para cada empleado.</p>
+            </div>
+
+            <!-- Upload area -->
+            <div id="uploadArea" class="upload-area">
+                <div class="upload-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </div>
+                <p class="upload-title">Arrastre el PDF aquí o haga clic para seleccionar</p>
+                <p class="upload-subtitle">Reporte de CrossChex Standard Attendance Management</p>
+                <input type="file" id="pdfFileInput" accept=".pdf" hidden>
+            </div>
+
+            <!-- PDF Viewer Workspace -->
+            <div id="pdfWorkspace" class="pdf-workspace" style="display:none;">
+                <div class="pdf-toolbar">
+                    <div class="pdf-toolbar-left">
+                        <select id="employeeSelect" class="employee-select">
+                            <option value="">— Seleccione empleado —</option>
+                        </select>
+                        <span class="pdf-page-info">Página <span id="currentPage">1</span> de <span id="totalPages">1</span></span>
+                    </div>
+                    <div class="pdf-toolbar-center">
+                        <button id="btnPrevPage" class="btn btn-icon" title="Página anterior">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                        </button>
+                        <button id="btnNextPage" class="btn btn-icon" title="Siguiente página">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                        <div class="toolbar-divider"></div>
+                        <button id="btnZoomOut" class="btn btn-icon" title="Reducir">−</button>
+                        <span id="zoomLevel" class="zoom-level">100%</span>
+                        <button id="btnZoomIn" class="btn btn-icon" title="Ampliar">+</button>
+                    </div>
+                    <div class="pdf-toolbar-right">
+                        <button id="btnClearSelections" class="btn btn-ghost btn-sm">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            Limpiar selecciones
+                        </button>
+                        <button id="btnExtractData" class="btn btn-primary btn-sm" disabled>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                            Extraer Datos
+                        </button>
+                    </div>
+                </div>
+
+                <div class="pdf-viewer-container">
+                    <div id="pdfViewerWrapper" class="pdf-viewer-wrapper">
+                        <div id="pdfContainer" class="pdf-container">
+                            <canvas id="pdfCanvas"></canvas>
+                            <canvas id="selectionCanvas"></canvas>
+                            <div id="selectionsOverlay" class="selections-overlay"></div>
+                        </div>
+                    </div>
+                    <!-- Selection info panel -->
+                    <div id="selectionsPanel" class="selections-panel">
+                        <h3>Selecciones</h3>
+                        <p class="panel-hint">Dibuje rectángulos sobre el PDF para seleccionar las columnas de datos.</p>
+                        <div id="selectionsList" class="selections-list"></div>
+                        <div id="extractionPreview" class="extraction-preview" style="display:none;">
+                            <h4>Vista previa</h4>
+                            <pre id="previewText"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-actions">
+                <button class="btn btn-ghost btn-back" data-next="1">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                    Volver
+                </button>
+                <button class="btn btn-primary btn-next" data-next="3">
+                    Continuar a Registros
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </button>
+            </div>
+        </section>
+
+        <!-- ===== STEP 3: REGISTROS ===== -->
+        <section id="step-3" class="step-section">
+            <div class="section-header">
+                <h2>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                    Tabla de Registros
+                </h2>
+                <p class="section-desc">Revise y edite los registros de asistencia extraídos. Las anomalías se marcan automáticamente.</p>
+            </div>
+
+            <!-- Employee Tabs -->
+            <div id="recordsTabs" class="records-tabs">
+                <!-- Rendered by JS -->
+            </div>
+
+            <!-- Employee Header Info -->
+            <div id="employeeInfoBar" class="employee-info-bar" style="display:none;">
+                <div class="info-badge"><span class="info-label">Empleado/a:</span> <span id="infoName">—</span></div>
+                <div class="info-badge"><span class="info-label">Horario L-V:</span> <span id="infoWeekday">—</span></div>
+                <div class="info-badge"><span class="info-label">Horario Sáb:</span> <span id="infoSaturday">—</span></div>
+                <div class="info-badge"><span class="info-label">Tolerancia:</span> <span id="infoTolerance">—</span></div>
+            </div>
+
+            <!-- Records Table -->
+            <div id="recordsTableWrapper" class="table-wrapper">
+                <table id="recordsTable" class="records-table">
+                    <thead>
+                        <tr>
+                            <th class="col-status"></th>
+                            <th class="col-num">#</th>
+                            <th class="col-date">Fecha</th>
+                            <th class="col-day">Día</th>
+                            <th class="col-shift">Turno</th>
+                            <th class="col-scheduled">Hora Programada</th>
+                            <th class="col-entry">Hora de Entrada</th>
+                            <th class="col-delay">Retraso (min)</th>
+                            <th class="col-exit">Hora de Salida</th>
+                            <th class="col-notes">Notas</th>
+                            <th class="col-actions">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recordsBody">
+                        <tr class="empty-row">
+                            <td colspan="11">
+                                <div class="empty-state">
+                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                                    <p>No hay registros cargados aún.</p>
+                                    <span>Vuelva al Paso 2 para cargar y extraer datos del PDF.</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="step-actions">
+                <button class="btn btn-ghost btn-back" data-next="2">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                    Volver
+                </button>
+                <button class="btn btn-primary btn-next" data-next="4">
+                    Ver Reporte Final
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </button>
+            </div>
+        </section>
+
+        <!-- ===== STEP 4: REPORTE ===== -->
+        <section id="step-4" class="step-section">
+            <div class="section-header">
+                <h2>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    Reporte Final
+                </h2>
+                <p class="section-desc">Resumen consolidado de asistencia del periodo seleccionado.</p>
+            </div>
+
+            <div id="reportControls" class="report-controls">
+                <div class="report-controls-left">
+                    <label for="reportEmployeeSelect">Generar reporte para:</label>
+                    <select id="reportEmployeeSelect" class="employee-select">
+                        <!-- Rendered by JS -->
+                    </select>
+                </div>
+                <div class="report-controls-right" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <div class="print-options" style="display: flex; align-items: center; gap: 6px; padding-right: 12px; border-right: 1px solid var(--border);">
+                        <span style="font-size: 0.8rem; color: var(--text-secondary);">Hoja:</span>
+                        <select id="printSize" style="background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 8px; font-size: 0.8rem; cursor: pointer;">
+                            <option value="A4">A4</option>
+                            <option value="letter">Carta</option>
+                            <option value="legal">Oficio</option>
+                        </select>
+                        <select id="printOrientation" style="background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 8px; font-size: 0.8rem; cursor: pointer;">
+                            <option value="portrait">Vertical</option>
+                            <option value="landscape">Horizontal</option>
+                        </select>
+                    </div>
+                    <button id="btnPrintReport" class="btn btn-secondary">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                        Imprimir / Guardar PDF
+                    </button>
+                    <button id="btnExportCSV" class="btn btn-primary">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Exportar CSV
+                    </button>
+                </div>
+            </div>
+
+            <div id="printableReport" class="printable-report">
+                <!-- Rendered by JS -->
+            </div>
+
+            <div class="step-actions no-print">
+                <button class="btn btn-ghost btn-back" data-next="3">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                    Volver
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <!-- ===== MODAL: Add/Edit Employee ===== -->
+    <div id="employeeModal" class="modal-overlay" style="display:none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">Agregar Empleado</h3>
+                <button class="btn btn-icon modal-close" id="btnCloseModal">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editEmployeeId">
+                <div class="form-group">
+                    <label for="empName">Nombre completo</label>
+                    <input type="text" id="empName" placeholder="Ej: Claudia Pérez">
+                </div>
+                <div class="form-group">
+                    <label for="empCompany">Empresa</label>
+                    <input type="text" id="empCompany" value="Andalucia Tours" placeholder="Empresa">
+                </div>
+
+                <h4 class="form-section-title">Horario Lunes a Viernes</h4>
+                <div id="weekdayShifts" class="shifts-container">
+                    <!-- Rendered by JS -->
+                </div>
+                <button type="button" id="btnAddWeekdayShift" class="btn btn-ghost btn-sm">+ Agregar turno</button>
+
+                <h4 class="form-section-title">Horario Sábado</h4>
+                <div id="saturdayShifts" class="shifts-container">
+                    <!-- Rendered by JS -->
+                </div>
+                <button type="button" id="btnAddSaturdayShift" class="btn btn-ghost btn-sm">+ Agregar turno</button>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" id="btnCancelModal">Cancelar</button>
+                <button class="btn btn-primary" id="btnSaveEmployee">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== TOAST NOTIFICATIONS ===== -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="js/app.js" type="module"></script>
+</body>
+</html>
