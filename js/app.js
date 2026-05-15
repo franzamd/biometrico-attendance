@@ -62,24 +62,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ===== LOCAL STORAGE =====
 function saveState() {
-  const data = { employees: state.employees, tolerance: state.tolerance, records: state.records, processedData: state.processedData, dateFormat: state.dateFormat };
+  // Only persist configuration and employee list. 
+  // Records and processed data are cleared on refresh as requested.
+  const data = { 
+    employees: state.employees, 
+    tolerance: state.tolerance, 
+    dateFormat: state.dateFormat 
+  };
   try { localStorage.setItem('biometrico_state', JSON.stringify(data)); } catch(e) { console.warn('Storage full', e); }
 }
 
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem('biometrico_state'));
+    state.records = {};        // Always empty on load
+    state.processedData = {};  // Always empty on load
+    
     if (saved) {
       state.employees = saved.employees || DEFAULT_EMPLOYEES;
       state.tolerance = saved.tolerance ?? 5;
-      state.records = saved.records || {};
-      state.processedData = saved.processedData || {};
       state.dateFormat = saved.dateFormat || 'YYYY-MM-DD';
     } else {
       state.employees = JSON.parse(JSON.stringify(DEFAULT_EMPLOYEES));
     }
   } catch {
     state.employees = JSON.parse(JSON.stringify(DEFAULT_EMPLOYEES));
+    state.records = {};
+    state.processedData = {};
   }
   
   document.getElementById('toleranceInput').value = state.tolerance;
@@ -98,6 +107,14 @@ function loadState() {
       if (state.currentStep === 4) renderReport();
     });
   }
+  document.querySelectorAll('#printCols, #printSize, #printOrientation').forEach(sel => {
+    sel?.addEventListener('change', () => {
+      const empSelect = document.getElementById('reportEmployeeSelect');
+      if (empSelect && empSelect.value) {
+        renderReportForEmployee(parseInt(empSelect.value));
+      }
+    });
+  });
 }
 
 // ===== DATE FORMATTER =====
@@ -484,11 +501,8 @@ function renderReport() {
   }
 
   // Populate select if empty or mismatched
-  if (empSelect.options.length !== empsWithData.length) {
-    empSelect.innerHTML = empsWithData.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
-    // Listen for changes
-    empSelect.onchange = () => renderReportForEmployee(parseInt(empSelect.value));
-  }
+  empSelect.innerHTML = empsWithData.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+  empSelect.onchange = () => renderReportForEmployee(parseInt(empSelect.value));
 
   const selectedEmpId = parseInt(empSelect.value) || empsWithData[0].id;
   renderReportForEmployee(selectedEmpId);
@@ -545,43 +559,71 @@ function renderReportForEmployee(empId) {
     </div>
   `;
 
-  const tableHTML = `
-    <h3 class="report-section-title">Detalle de Asistencias</h3>
-    <table class="records-table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Fecha</th>
-          <th>Día</th>
-          <th>Turno</th>
-          <th>Hora Programada</th>
-          <th>Hora Entrada</th>
-          <th>Retraso (min)</th>
-          <th>Hora Salida</th>
-          <th>Notas</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${data.map((row, i) => {
-          const delayText = row.delay > 0 ? `+${row.delay}` : (row.delay === 0 ? '0' : '—');
-          const delayClass = row.delay > 0 ? 'delay-late' : 'delay-ok';
-          return `
-            <tr>
-              <td style="color:#666">${i + 1}</td>
-              <td>${formatDateDisplay(row.date)}</td>
-              <td>${row.day || ''}</td>
-              <td>${row.shift || ''}</td>
-              <td>${row.scheduled || '—'}</td>
-              <td>${row.entry || '—'}</td>
-              <td class="${delayClass}">${delayText}</td>
-              <td>${row.exit || '—'}</td>
-              <td class="col-notes">${row.notes || ''}</td>
-            </tr>
-          `;
-        }).join('')}
-      </tbody>
-    </table>
-  `;
+  const cols = parseInt(document.getElementById('printCols')?.value) || 1;
+  const rowsPerCol = 35; 
+  const rowsPerPage = rowsPerCol * cols;
+  
+  let tableHTML = `<h3 class="report-section-title">Detalle de Asistencias</h3>`;
+  
+  if (cols === 1) {
+    // Single table for 1-column layout
+    tableHTML += renderTableChunk(data, 0, data.length, cols);
+  } else {
+    // Group into pages for multi-column layout
+    for (let p = 0; p < data.length; p += rowsPerPage) {
+      const pageData = data.slice(p, p + rowsPerPage);
+      // Dynamically calculate how many rows per column to fill all columns
+      const currentRowsPerCol = Math.ceil(pageData.length / cols);
+      
+      tableHTML += `<div class="report-page-block cols-${cols}" style="display: flex; gap: 10px; margin-bottom: 15px; break-inside: avoid;">`;
+      for (let c = 0; c < cols; c++) {
+        const colData = pageData.slice(c * currentRowsPerCol, (c + 1) * currentRowsPerCol);
+        if (colData.length === 0 && c > 0) break;
+        tableHTML += renderTableChunk(colData, p + (c * currentRowsPerCol), colData.length, cols);
+      }
+      tableHTML += `</div>`;
+    }
+  }
+
+  function renderTableChunk(chunkData, startIndex, length, numCols) {
+    return `
+      <table class="records-table report-main-table" style="flex: 1; min-width: 0; border-collapse: collapse;">
+        <thead>
+          <tr>
+            <th style="width: 25px; text-align: center;">#</th>
+            <th>Fecha</th>
+            <th class="col-day-name">Día</th>
+            <th>Turno</th>
+            <th class="col-sched">Horario</th>
+            <th>Entrada</th>
+            <th>Retraso</th>
+            <th>Salida</th>
+            ${numCols < 3 ? '<th class="col-notes">Notas</th>' : ''}
+          </tr>
+        </thead>
+        <tbody>
+          ${chunkData.map((row, idx) => {
+            const globalIdx = startIndex + idx + 1;
+            const delayText = row.delay > 0 ? `+${row.delay}` : (row.delay === 0 ? '0' : '—');
+            const delayClass = row.delay > 0 ? 'delay-late' : 'delay-ok';
+            return `
+              <tr>
+                <td style="color:#94a3b8; text-align: center; font-size: 0.6rem; width: 25px;">${globalIdx}</td>
+                <td style="white-space: nowrap;">${formatDateDisplay(row.date)}</td>
+                <td class="col-day-name">${row.day || ''}</td>
+                <td>${row.shift || ''}</td>
+                <td class="col-sched">${row.scheduled || '—'}</td>
+                <td>${row.entry || '—'}</td>
+                <td class="${delayClass}">${delayText}</td>
+                <td>${row.exit || '—'}</td>
+                ${numCols < 3 ? `<td class="col-notes">${row.notes || ''}</td>` : ''}
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+  }
 
   reportContainer.innerHTML = `
     <div class="report-header-doc">

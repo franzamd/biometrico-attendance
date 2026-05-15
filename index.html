@@ -279,7 +279,6 @@
 
             <div id="reportControls" class="report-controls">
                 <div class="report-controls-left">
-                    <label for="reportEmployeeSelect">Generar reporte para:</label>
                     <select id="reportEmployeeSelect" class="employee-select">
                         <!-- Rendered by JS -->
                     </select>
@@ -295,6 +294,12 @@
                         <select id="printOrientation" style="background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 8px; font-size: 0.8rem; cursor: pointer;">
                             <option value="portrait">Vertical</option>
                             <option value="landscape">Horizontal</option>
+                        </select>
+                        <span style="font-size: 0.8rem; color: var(--text-secondary); margin-left: 8px;">Columnas:</span>
+                        <select id="printCols" style="background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 8px; font-size: 0.8rem; cursor: pointer;">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
                         </select>
                     </div>
                     <button id="btnPrintReport" class="btn btn-secondary">
