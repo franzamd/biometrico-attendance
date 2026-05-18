@@ -536,6 +536,28 @@ function renderReportForEmployee(empId) {
   });
   const totalDays = uniqueDays.size;
 
+  // Calculate Missing Days (Days in range that should have records but don't)
+  let missingDays = 0;
+  if (dates.length > 0) {
+    const start = new Date(dates[0] + 'T00:00:00');
+    const end = new Date(dates[dates.length - 1] + 'T00:00:00');
+    const current = new Date(start);
+    
+    while (current <= end) {
+      const dateStr = current.toISOString().split('T')[0];
+      const day = current.getDay(); // 0=Sun, 1=Mon...6=Sat
+      
+      let isWorkingDay = false;
+      if (day >= 1 && day <= 5 && emp.weekday && emp.weekday.length > 0) isWorkingDay = true;
+      if (day === 6 && emp.saturday && emp.saturday.length > 0) isWorkingDay = true;
+      
+      if (isWorkingDay && !uniqueDays.has(dateStr)) {
+        missingDays++;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+  }
+
   const scheduleHTML = `
     <div class="report-schedules">
       <div class="schedule-box">
@@ -552,10 +574,31 @@ function renderReportForEmployee(empId) {
   const cardsHTML = `
     <h3 class="report-section-title">Consolidado Mensual</h3>
     <div class="report-cards">
-      <div class="report-card card-accent"><div class="report-card-value">${totalDays}</div><div class="report-card-label">Días Trabajados</div><div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;">Días únicos con asistencia</div></div>
-      <div class="report-card card-green"><div class="report-card-value">${totalOnTime}</div><div class="report-card-label">Llegadas Puntuales</div><div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;">Total de turnos a tiempo</div></div>
-      <div class="report-card card-red"><div class="report-card-value">${totalLate}</div><div class="report-card-label">Llegadas Tarde</div><div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;">Total de turnos con retraso</div></div>
-      <div class="report-card card-yellow"><div class="report-card-value">${totalDelayMin} min</div><div class="report-card-label">Tiempo Perdido</div><div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;">Suma total de retrasos al ingreso</div></div>
+      <div class="report-card card-accent">
+        <div class="report-card-value">${totalDays}</div>
+        <div class="report-card-label">Días Trabajados</div>
+        <div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;">Días con registro</div>
+      </div>
+      <div class="report-card card-red">
+        <div class="report-card-value">${missingDays}</div>
+        <div class="report-card-label">Días Faltantes</div>
+        <div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;">Días laborales sin registro</div>
+      </div>
+      <div class="report-card card-green">
+        <div class="report-card-value">${totalOnTime}</div>
+        <div class="report-card-label">Llegadas Puntuales</div>
+        <div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;">Turnos a tiempo</div>
+      </div>
+      <div class="report-card card-red">
+        <div class="report-card-value">${totalLate}</div>
+        <div class="report-card-label">Llegadas Tarde</div>
+        <div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;">Turnos con retraso</div>
+      </div>
+      <div class="report-card card-yellow">
+        <div class="report-card-value">${totalDelayMin} min</div>
+        <div class="report-card-label">Minutos de Retraso</div>
+        <div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;">Suma total de retrasos</div>
+      </div>
     </div>
   `;
 
@@ -685,6 +728,23 @@ document.getElementById('btnExportCSV')?.addEventListener('click', () => {
   });
   const totalDays = uniqueDays.size;
 
+  // Calculate Missing Days for CSV
+  let missingDays = 0;
+  if (dates.length > 0) {
+    const start = new Date(dates[0] + 'T00:00:00');
+    const end = new Date(dates[dates.length - 1] + 'T00:00:00');
+    const current = new Date(start);
+    while (current <= end) {
+      const dateStr = current.toISOString().split('T')[0];
+      const day = current.getDay();
+      let isWorkingDay = false;
+      if (day >= 1 && day <= 5 && emp.weekday && emp.weekday.length > 0) isWorkingDay = true;
+      if (day === 6 && emp.saturday && emp.saturday.length > 0) isWorkingDay = true;
+      if (isWorkingDay && !uniqueDays.has(dateStr)) missingDays++;
+      current.setDate(current.getDate() + 1);
+    }
+  }
+
   // Format Schedules
   const weekdaySchedule = emp.weekday.length ? emp.weekday.map(s => `${s.shift}: ${s.entry} - ${s.exit}`).join(' | ') : 'Sin horario';
   const saturdaySchedule = emp.saturday.length ? emp.saturday.map(s => `${s.shift}: ${s.entry} - ${s.exit}`).join(' | ') : 'No trabaja';
@@ -702,9 +762,10 @@ document.getElementById('btnExportCSV')?.addEventListener('click', () => {
 
   csv += '"CONSOLIDADO MENSUAL"\n';
   csv += `"Días Trabajados:","${totalDays} (Días únicos con asistencia)"\n`;
+  csv += `"Días Faltantes:","${missingDays} (Días laborales sin registro)"\n`;
   csv += `"Llegadas Puntuales:","${totalOnTime} (Total de turnos a tiempo)"\n`;
   csv += `"Llegadas Tarde:","${totalLate} (Total de turnos con retraso)"\n`;
-  csv += `"Tiempo Perdido:","${totalDelayMin} min (Suma total de retrasos al ingreso)"\n\n`;
+  csv += `"Minutos de Retraso:","${totalDelayMin} min (Suma total de retrasos)"\n\n`;
 
   csv += '"DETALLE DE ASISTENCIAS"\n';
   csv += '"Fecha","Día","Turno","Hora Programada","Hora Entrada","Retraso (min)","Hora Salida","Notas"\n';

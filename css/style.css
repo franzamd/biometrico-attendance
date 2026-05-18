@@ -459,23 +459,38 @@ tr.row-duplicate td { opacity: .7; }
   margin: 32px 0 16px; color: var(--accent);
 }
 
-.report-page-block { display: flex; gap: 10px; width: 100%; align-items: flex-start; }
-.report-main-table { border-collapse: collapse; table-layout: fixed; width: 100%; }
+.report-page-block { display: flex; gap: 10px; width: 100%; align-items: flex-start; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.report-main-table { border-collapse: collapse; width: 100%; }
 .report-main-table th, .report-main-table td { 
-  border: 1px solid var(--border); 
-  padding: 4px 1px; 
-  font-size: 0.75rem; 
-  overflow: hidden; 
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  border: 1px solid #ddd; 
+  padding: 4px 2px; 
+  font-size: 0.72rem; 
+  text-align: left;
 }
-.report-main-table th:first-child, .report-main-table td:first-child { width: 22px; min-width: 22px; text-align: center; font-size: 0.55rem; padding: 4px 0; }
-.cols-2 .col-day-name { display: none; }
-.cols-2 .report-main-table th, .cols-2 .report-main-table td { font-size: 0.68rem; padding: 3px 1px; }
-.cols-2 .col-notes { font-size: 0.6rem; white-space: normal; line-height: 1.1; max-width: 70px; }
+.report-main-table th { background: #f8f9fa !important; color: #000 !important; }
+.cols-2 .report-main-table th, .cols-2 .report-main-table td { font-size: 0.65rem; padding: 3px 2px; }
+.cols-2 .col-notes { font-size: 0.6rem; white-space: normal; line-height: 1.1; }
 .cols-3 .col-day-name, .cols-3 .col-sched { display: none; }
-.cols-3 .report-main-table th, .cols-3 .report-main-table td { font-size: 0.62rem; padding: 2px 1px; }
-.cols-3 .report-main-table th { font-size: 0.58rem; }
+.cols-3 .report-main-table th, .cols-3 .report-main-table td { font-size: 0.58rem; padding: 2px 1px; }
+.cols-3 .report-main-table th { font-size: 0.55rem; }
+
+@media print {
+  body { background: white !important; color: black !important; }
+  .report-page-block { gap: 8px; }
+  .report-card { border: 1px solid #ccc !important; background: white !important; box-shadow: none !important; }
+  .report-card::before { height: 4px !important; display: block !important; }
+  .report-main-table { width: 100% !important; border: 1px solid #999 !important; }
+  .report-main-table th, .report-main-table td { border: 1px solid #999 !important; color: #000 !important; padding: 3px !important; }
+  .report-main-table th { background: #eee !important; -webkit-print-color-adjust: exact; }
+  
+  /* Sidebar and headers should be invisible */
+  #sidebar, .top-header, .config-panel, .btn-primary, .btn-secondary, .toast-container, .report-controls { display: none !important; }
+  
+  /* Reset container margins for print */
+  .app-container { grid-template-columns: 1fr !important; }
+  .main-content { padding: 0 !important; }
+  .printable-report { border: none !important; padding: 0 !important; width: 100% !important; }
+}
 
 .report-schedules { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 24px; }
 .schedule-box { background: var(--bg-tertiary); padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); flex: 1; min-width: 250px; }
