@@ -520,6 +520,31 @@ function renderReportForEmployee(empId) {
 
   // Calculate Date Range
   const dates = data.map(r => r.date).filter(d => d).sort();
+  
+  // Detect Month and Year from data if available, falling back to selectors
+  if (dates.length > 0) {
+    const firstDateStr = dates[0];
+    const parts = firstDateStr.split('-');
+    if (parts.length === 3) {
+      const detectedYear = parseInt(parts[0]);
+      const detectedMonthIndex = parseInt(parts[1]) - 1; // 0-indexed month
+      
+      const selMonth = document.getElementById('selectMonth');
+      const selYear = document.getElementById('selectYear');
+      if (selMonth) selMonth.value = detectedMonthIndex;
+      if (selYear) {
+        let yearOpt = selYear.querySelector(`option[value="${detectedYear}"]`);
+        if (!yearOpt) {
+          yearOpt = document.createElement('option');
+          yearOpt.value = detectedYear;
+          yearOpt.textContent = detectedYear;
+          selYear.appendChild(yearOpt);
+        }
+        selYear.value = detectedYear;
+      }
+    }
+  }
+
   const firstDate = dates[0] ? formatDateDisplay(dates[0]) : '—';
   const lastDate = dates[dates.length - 1] ? formatDateDisplay(dates[dates.length - 1]) : '—';
   const monthName = document.getElementById('selectMonth').selectedOptions[0]?.text || '';
@@ -713,6 +738,29 @@ document.getElementById('btnExportCSV')?.addEventListener('click', () => {
 
   // Date Range and Period
   const dates = data.map(r => r.date).filter(d => d).sort();
+  
+  if (dates.length > 0) {
+    const firstDateStr = dates[0];
+    const parts = firstDateStr.split('-');
+    if (parts.length === 3) {
+      const detectedYear = parseInt(parts[0]);
+      const detectedMonthIndex = parseInt(parts[1]) - 1;
+      const selMonth = document.getElementById('selectMonth');
+      const selYear = document.getElementById('selectYear');
+      if (selMonth) selMonth.value = detectedMonthIndex;
+      if (selYear) {
+        let yearOpt = selYear.querySelector(`option[value="${detectedYear}"]`);
+        if (!yearOpt) {
+          yearOpt = document.createElement('option');
+          yearOpt.value = detectedYear;
+          yearOpt.textContent = detectedYear;
+          selYear.appendChild(yearOpt);
+        }
+        selYear.value = detectedYear;
+      }
+    }
+  }
+
   const firstDate = dates[0] ? formatDateDisplay(dates[0]) : '—';
   const lastDate = dates[dates.length - 1] ? formatDateDisplay(dates[dates.length - 1]) : '—';
   const monthName = document.getElementById('selectMonth').selectedOptions[0]?.text || '';
