@@ -28,7 +28,7 @@ const DEFAULT_EMPLOYEES = [
     saturday: [{ shift: 'Mañana', entry: '09:00', exit: '13:00' }]
   },
   {
-    id: 3, name: 'Mariela', company: 'Andalucia Tours',
+    id: 5, name: 'Mariela', company: 'Andalucia Tours',
     weekday: [
       { shift: 'Mañana', entry: '09:00', exit: '12:30' },
       { shift: 'Tarde', entry: '15:00', exit: '19:00' }
@@ -45,7 +45,10 @@ const state = {
   records: {},        // { employeeId: [ {date, time, type, raw} ] }
   processedData: {},  // { employeeId: [ {date, day, shift, scheduled, entry, exit, delay, notes, status} ] }
   activeEmployeeTab: null,
-  dateFormat: 'YYYY-MM-DD'
+  dateFormat: 'YYYY-MM-DD',
+  printSize: 'A4',
+  printOrientation: 'portrait',
+  printCols: '1'
 };
 
 // ===== INITIALIZATION =====
@@ -56,18 +59,22 @@ document.addEventListener('DOMContentLoaded', () => {
   renderEmployeeGrid();
   initEmployeeModal();
   initUploadArea();
+  initResetButton();
+  initSettings();
   window.pdfHandler = new PDFHandler(state);
   window.dataProcessor = new DataProcessor(state);
 });
 
-// ===== LOCAL STORAGE =====
 function saveState() {
-  // Only persist configuration and employee list. 
+  // Only persist configuration (employees list, tolerance, date format, and PDF report config).
   // Records and processed data are cleared on refresh as requested.
   const data = { 
     employees: state.employees, 
     tolerance: state.tolerance, 
-    dateFormat: state.dateFormat 
+    dateFormat: state.dateFormat,
+    printSize: state.printSize,
+    printOrientation: state.printOrientation,
+    printCols: state.printCols
   };
   try { localStorage.setItem('biometrico_state', JSON.stringify(data)); } catch(e) { console.warn('Storage full', e); }
 }
@@ -79,23 +86,43 @@ function loadState() {
     state.processedData = {};  // Always empty on load
     
     if (saved) {
-      state.employees = saved.employees || DEFAULT_EMPLOYEES;
+      state.employees = (saved.employees && saved.employees.length > 0) ? saved.employees : JSON.parse(JSON.stringify(DEFAULT_EMPLOYEES));
+      // Migración: Asegurar que Mariela tenga el ID único 5 y no colisione con Carla (3)
+      state.employees.forEach(emp => {
+        if (emp.name === 'Mariela' && emp.id === 3) {
+          emp.id = 5;
+        }
+      });
       state.tolerance = saved.tolerance ?? 5;
       state.dateFormat = saved.dateFormat || 'YYYY-MM-DD';
+      state.printSize = saved.printSize || 'A4';
+      state.printOrientation = saved.printOrientation || 'portrait';
+      state.printCols = saved.printCols || '1';
     } else {
       state.employees = JSON.parse(JSON.stringify(DEFAULT_EMPLOYEES));
+      state.printSize = 'A4';
+      state.printOrientation = 'portrait';
+      state.printCols = '1';
     }
   } catch {
     state.employees = JSON.parse(JSON.stringify(DEFAULT_EMPLOYEES));
     state.records = {};
     state.processedData = {};
+    state.printSize = 'A4';
+    state.printOrientation = 'portrait';
+    state.printCols = '1';
   }
+}
   
-  document.getElementById('toleranceInput').value = state.tolerance;
-  document.getElementById('toleranceInput').addEventListener('change', e => {
-    state.tolerance = parseInt(e.target.value) || 5;
-    saveState();
-  });
+function initSettings() {
+  const toleranceInput = document.getElementById('toleranceInput');
+  if (toleranceInput) {
+    toleranceInput.value = state.tolerance;
+    toleranceInput.addEventListener('change', e => {
+      state.tolerance = parseInt(e.target.value) || 5;
+      saveState();
+    });
+  }
 
   const formatSelect = document.getElementById('dateFormatSelect');
   if (formatSelect) {
@@ -107,8 +134,22 @@ function loadState() {
       if (state.currentStep === 4) renderReport();
     });
   }
+
   document.querySelectorAll('#printCols, #printSize, #printOrientation').forEach(sel => {
-    sel?.addEventListener('change', () => {
+    // Initialize elements from state
+    if (sel) {
+      if (sel.id === 'printSize') sel.value = state.printSize;
+      if (sel.id === 'printOrientation') sel.value = state.printOrientation;
+      if (sel.id === 'printCols') sel.value = state.printCols;
+    }
+
+    sel?.addEventListener('change', (e) => {
+      if (e.target.id === 'printSize') state.printSize = e.target.value;
+      if (e.target.id === 'printOrientation') state.printOrientation = e.target.value;
+      if (e.target.id === 'printCols') state.printCols = e.target.value;
+      
+      saveState();
+
       const empSelect = document.getElementById('reportEmployeeSelect');
       if (empSelect && empSelect.value) {
         renderReportForEmployee(parseInt(empSelect.value));
@@ -504,7 +545,12 @@ function renderReport() {
   empSelect.innerHTML = empsWithData.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
   empSelect.onchange = () => renderReportForEmployee(parseInt(empSelect.value));
 
-  const selectedEmpId = parseInt(empSelect.value) || empsWithData[0].id;
+  // Pre-select based on the active tab in Step 3 if it has data
+  let selectedEmpId = empsWithData[0].id;
+  if (state.activeEmployeeTab && empsWithData.some(e => e.id === state.activeEmployeeTab)) {
+    selectedEmpId = state.activeEmployeeTab;
+  }
+  empSelect.value = selectedEmpId;
   renderReportForEmployee(selectedEmpId);
 }
 
@@ -556,8 +602,12 @@ function renderReportForEmployee(empId) {
   
   data.forEach(r => {
     if (r.date) uniqueDays.add(r.date);
-    if (r.status === 'late') { totalLate++; totalDelayMin += r.delay || 0; }
-    if (r.status === 'on-time') totalOnTime++;
+    if (r.delay > 0) {
+      totalLate++;
+      totalDelayMin += r.delay;
+    } else if (r.entry && r.entry !== '—' && r.delay === 0) {
+      totalOnTime++;
+    }
   });
   const totalDays = uniqueDays.size;
 
@@ -771,8 +821,12 @@ document.getElementById('btnExportCSV')?.addEventListener('click', () => {
   const uniqueDays = new Set();
   data.forEach(r => {
     if (r.date) uniqueDays.add(r.date);
-    if (r.status === 'late') { totalLate++; totalDelayMin += r.delay || 0; }
-    if (r.status === 'on-time') totalOnTime++;
+    if (r.delay > 0) {
+      totalLate++;
+      totalDelayMin += r.delay;
+    } else if (r.entry && r.entry !== '—' && r.delay === 0) {
+      totalOnTime++;
+    }
   });
   const totalDays = uniqueDays.size;
 
@@ -828,6 +882,60 @@ document.getElementById('btnExportCSV')?.addEventListener('click', () => {
   a.click(); URL.revokeObjectURL(a.href);
   showToast('CSV exportado correctamente', 'success');
 });
+
+// ===== RESET ALL CONFIGURATION =====
+function initResetButton() {
+  const btnReset = document.getElementById('btnResetAll');
+  if (btnReset) {
+    btnReset.addEventListener('click', () => {
+      if (confirm('¿Está seguro de vaciar todos los registros, empleados y configuraciones y restablecer el sistema?')) {
+        localStorage.removeItem('biometrico_state');
+        state.employees = JSON.parse(JSON.stringify(DEFAULT_EMPLOYEES));
+        state.tolerance = 5;
+        state.dateFormat = 'YYYY-MM-DD';
+        state.printSize = 'A4';
+        state.printOrientation = 'portrait';
+        state.printCols = '1';
+        state.records = {};
+        state.processedData = {};
+        state.activeEmployeeTab = null;
+        
+        // Sync DOM inputs
+        document.getElementById('toleranceInput').value = state.tolerance;
+        const formatSelect = document.getElementById('dateFormatSelect');
+        if (formatSelect) formatSelect.value = state.dateFormat;
+        
+        const printSizeSel = document.getElementById('printSize');
+        const printOrientationSel = document.getElementById('printOrientation');
+        const printColsSel = document.getElementById('printCols');
+        if (printSizeSel) printSizeSel.value = state.printSize;
+        if (printOrientationSel) printOrientationSel.value = state.printOrientation;
+        if (printColsSel) printColsSel.value = state.printCols;
+        
+        // Save fresh configuration
+        saveState();
+        
+        // Refresh grid and selectors
+        renderEmployeeGrid();
+        initMonthYear();
+        const empSelect = document.getElementById('employeeSelect');
+        if (empSelect) {
+          empSelect.innerHTML = '<option value="">— Seleccione empleado —</option>';
+          state.employees.forEach(emp => {
+            const opt = document.createElement('option');
+            opt.value = emp.id; opt.textContent = emp.name;
+            empSelect.appendChild(opt);
+          });
+        }
+        
+        // If we are on records step (step 3), reset tabs
+        renderRecordsTabs();
+        
+        showToast('Sistema restablecido correctamente', 'success');
+      }
+    });
+  }
+}
 
 // ===== TOAST =====
 function showToast(msg, type = 'info') {

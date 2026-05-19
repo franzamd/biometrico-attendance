@@ -26,7 +26,8 @@
                 </div>
             </div>
             <div class="header-actions">
-                <div class="month-selector">
+                <!-- Selectores de periodo ocultos del UI para evitar redundancia, pero conservados en el DOM para la compatibilidad con los scripts de sincronización y exportación CSV -->
+                <div class="month-selector" style="display: none !important;">
                     <label for="selectMonth">Periodo:</label>
                      <select id="selectMonth"></select>
                     <select id="selectYear"></select>
@@ -95,10 +96,16 @@
                         </select>
                     </div>
                 </div>
-                <button id="btnAddEmployee" class="btn btn-secondary">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    Agregar Empleado
-                </button>
+                <div style="display: flex; gap: 10px;">
+                    <button id="btnResetAll" class="btn btn-ghost" style="border: 1px solid var(--border-accent); color: var(--text-secondary); background: transparent; display: flex; align-items: center; gap: 8px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><polyline points="3 3 3 8 8 8"/></svg>
+                        Vaciar Todo
+                    </button>
+                    <button id="btnAddEmployee" class="btn btn-secondary">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Agregar Empleado
+                    </button>
+                </div>
             </div>
 
             <!-- Employee Cards Grid -->
@@ -141,7 +148,16 @@
                         <select id="employeeSelect" class="employee-select">
                             <option value="">— Seleccione empleado —</option>
                         </select>
-                        <span class="pdf-page-info">Página <span id="currentPage">1</span> de <span id="totalPages">1</span></span>
+                        <span class="pdf-page-info" style="display: inline-flex; align-items: center; gap: 4px; vertical-align: middle;">
+                            Página 
+                            <span id="pageDisplayWrapper" style="display: inline-flex; align-items: center; gap: 4px; vertical-align: middle;">
+                                <span id="currentPage" style="cursor: pointer; font-weight: bold; background: var(--bg-tertiary); border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; display: inline-block; line-height: 1.2;" title="Haga clic para editar">1</span>
+                                <button id="btnEditPage" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 2px; display: inline-flex; align-items: center; vertical-align: middle;" title="Escribir página">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                </button>
+                            </span>
+                            de <span id="totalPages">1</span>
+                        </span>
                     </div>
                     <div class="pdf-toolbar-center">
                         <button id="btnPrevPage" class="btn btn-icon" title="Página anterior">
@@ -278,7 +294,7 @@
             </div>
 
             <div id="reportControls" class="report-controls">
-                <div class="report-controls-left">
+                <div class="report-controls-left" style="display: none !important;">
                     <select id="reportEmployeeSelect" class="employee-select">
                         <!-- Rendered by JS -->
                     </select>

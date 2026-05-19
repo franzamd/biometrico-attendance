@@ -29,6 +29,55 @@ export class PDFHandler {
     document.getElementById('btnZoomOut').addEventListener('click', () => this.zoom(-0.25));
     document.getElementById('btnClearSelections').addEventListener('click', () => this.clearSelections());
     document.getElementById('btnExtractData').addEventListener('click', () => this.extractData());
+
+    const pageWrapper = document.getElementById('pageDisplayWrapper');
+    const startEdit = () => {
+      if (!this.pdfDoc) return;
+      const current = this.currentPage;
+      const total = this.pdfDoc.numPages;
+      pageWrapper.innerHTML = `
+        <input type="number" id="inputPage" min="1" max="${total}" value="${current}" 
+          style="width: 50px; text-align: center; border: 1px solid var(--border-accent); border-radius: 4px; background: var(--bg-secondary); color: var(--text-primary); font-size: 0.85rem; padding: 2px 4px; font-weight: bold; outline: none;" />
+      `;
+      const input = document.getElementById('inputPage');
+      input.focus();
+      input.select();
+
+      let isFinished = false;
+      const finishEdit = () => {
+        if (isFinished) return;
+        isFinished = true;
+        const val = parseInt(input.value);
+        if (!isNaN(val) && val >= 1 && val <= total) {
+          this.goToPage(val);
+        } else {
+          this.renderPageInfoOnly();
+        }
+      };
+
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          finishEdit();
+        } else if (e.key === 'Escape') {
+          isFinished = true;
+          this.renderPageInfoOnly();
+        }
+      });
+
+      input.addEventListener('blur', () => {
+        setTimeout(() => finishEdit(), 150);
+      });
+    };
+
+    pageWrapper?.addEventListener('click', (e) => {
+      const isTarget = e.target.id === 'currentPage' || 
+                       e.target.id === 'btnEditPage' || 
+                       e.target.closest('#btnEditPage') || 
+                       e.target.closest('#currentPage');
+      if (isTarget && !document.getElementById('inputPage')) {
+        startEdit();
+      }
+    });
   }
 
   initSelection() {
@@ -40,6 +89,10 @@ export class PDFHandler {
   }
 
   async loadPDF(file) {
+    state.records = {};
+    state.processedData = {};
+    state.activeEmployeeTab = null;
+
     const arrayBuffer = await file.arrayBuffer();
     this.pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     document.getElementById('totalPages').textContent = this.pdfDoc.numPages;
@@ -73,7 +126,7 @@ export class PDFHandler {
     overlay.style.height = viewport.height + 'px';
 
     await page.render({ canvasContext: this.pdfCtx, viewport }).promise;
-    document.getElementById('currentPage').textContent = this.currentPage;
+    this.renderPageInfoOnly();
     document.getElementById('zoomLevel').textContent = Math.round(this.scale * 100) + '%';
 
     this.viewport = viewport;
@@ -91,6 +144,25 @@ export class PDFHandler {
   zoom(delta) {
     this.scale = Math.max(0.5, Math.min(3, this.scale + delta));
     this.renderPage();
+  }
+
+  goToPage(pageNum) {
+    if (!this.pdfDoc) return;
+    if (pageNum < 1 || pageNum > this.pdfDoc.numPages) return;
+    this.currentPage = pageNum;
+    this.renderPage();
+  }
+
+  renderPageInfoOnly() {
+    const pageWrapper = document.getElementById('pageDisplayWrapper');
+    if (pageWrapper) {
+      pageWrapper.innerHTML = `
+        <span id="currentPage" style="cursor: pointer; font-weight: bold; background: var(--bg-tertiary); border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; display: inline-block; line-height: 1.2;" title="Haga clic para editar">${this.currentPage}</span>
+        <button id="btnEditPage" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 2px; display: inline-flex; align-items: center; vertical-align: middle;" title="Escribir página">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+      `;
+    }
   }
 
   // ===== SELECTION DRAWING =====
@@ -219,17 +291,23 @@ export class PDFHandler {
     previewDiv.style.display = 'block';
 
     if (allText.length > 0) {
+      // Limpiar registros previos de otros empleados para evitar duplicidad o mezcla de reportes
+      state.records = {};
+      state.processedData = {};
+
       // Parse the extracted text
       const processor = new DataProcessor(this.state);
       const records = processor.parseRawText(allText, textStr);
 
       // Store raw records
-      if (!state.records[empId]) state.records[empId] = [];
-      state.records[empId].push(...records);
+      state.records[empId] = records;
 
       // Process into table data
       const emp = state.employees.find(e => e.id === empId);
       state.processedData[empId] = processor.processRecords(state.records[empId], emp, state.tolerance);
+
+      // Pre-seleccionar la pestaña del empleado recién extraído
+      state.activeEmployeeTab = empId;
 
       saveState();
       showToast(`${records.length} registros extraídos para ${emp.name}`, 'success');
