@@ -135,20 +135,34 @@ export class DataProcessor {
         continue;
       }
 
-      // Match records to shifts
-      for (const shift of shifts) {
+      // Sort shifts by entry time to partition the day correctly
+      const dayShifts = [...shifts].sort((a, b) => this.timeToMinutes(a.entry) - this.timeToMinutes(b.entry));
+
+      // Match records to shifts using a midpoint partition to support any late check-out or early check-in
+      for (let index = 0; index < dayShifts.length; index++) {
+        const shift = dayShifts[index];
         const shiftEntry = this.timeToMinutes(shift.entry);
         const shiftExit = this.timeToMinutes(shift.exit);
-        const shiftMid = (shiftEntry + shiftExit) / 2;
 
-        // Find records that belong to this shift
-        // Use time proximity to the shift window
+        // Compute window boundaries dynamically based on adjacent shifts
+        let windowStart = 0;
+        if (index > 0) {
+          const prevShift = dayShifts[index - 1];
+          const prevExit = this.timeToMinutes(prevShift.exit);
+          windowStart = Math.floor((prevExit + shiftEntry) / 2);
+        }
+
+        let windowEnd = 1440; // 24:00 in minutes
+        if (index < dayShifts.length - 1) {
+          const nextShift = dayShifts[index + 1];
+          const nextEntry = this.timeToMinutes(nextShift.entry);
+          windowEnd = Math.floor((shiftExit + nextEntry) / 2);
+        }
+
+        // Find records that belong to this shift's window
         const shiftRecords = dayRecords.filter(r => {
           const recMin = this.timeToMinutes(r.time.substring(0, 5));
-          // Record belongs to this shift if it's within reasonable range
-          // Entry: within 60 min before shift start to shift midpoint
-          // Exit: from shift midpoint to 60 min after shift end
-          return recMin >= (shiftEntry - 60) && recMin <= (shiftExit + 60);
+          return recMin >= windowStart && recMin < windowEnd;
         });
 
         // Determine entry and exit intelligently
@@ -167,34 +181,53 @@ export class DataProcessor {
         }
 
         if (shiftRecords.length === 1) {
-          // Single record - determine if entry or exit based on time
-          const recMin = this.timeToMinutes(shiftRecords[0].time.substring(0, 5));
-          if (Math.abs(recMin - shiftEntry) < Math.abs(recMin - shiftExit)) {
-            entryRecord = shiftRecords[0];
+          // Single record - determine if entry or exit based on type if available, otherwise proximity
+          const r = shiftRecords[0];
+          const recMin = this.timeToMinutes(r.time.substring(0, 5));
+
+          if (r.type === 'In') {
+            entryRecord = r;
+          } else if (r.type === 'Out') {
+            exitRecord = r;
           } else {
-            exitRecord = shiftRecords[0];
+            // Proximity fallback
+            if (Math.abs(recMin - shiftEntry) < Math.abs(recMin - shiftExit)) {
+              entryRecord = r;
+            } else {
+              exitRecord = r;
+            }
           }
         } else {
-          // Multiple records - first is entry, last is exit
-          // But apply smart detection: ignore the In/Out label from biometric
-          // and use time proximity instead
-          entryRecord = shiftRecords[0]; // Earliest = entry
-          exitRecord = shiftRecords[shiftRecords.length - 1]; // Latest = exit
+          // Multiple records - sort chronologically
+          const sortedRecs = [...shiftRecords].sort((a, b) => a.time.localeCompare(b.time));
 
-          // Check for duplicates (same type within 5 min of each other)
-          if (shiftRecords.length > 2) {
-            // More than 2 records in a shift = potential duplicates
-            const entryTime = entryRecord.time.substring(0, 5);
-            const exitTime = exitRecord.time.substring(0, 5);
+          // Filter by explicit biometric tags if available
+          const ins = sortedRecs.filter(r => r.type === 'In');
+          const outs = sortedRecs.filter(r => r.type === 'Out');
+
+          if (ins.length > 0 && outs.length > 0) {
+            // Earliest In is entry, latest Out is exit
+            entryRecord = ins[0];
+            exitRecord = outs[outs.length - 1];
+          } else {
+            // Fallback to absolute earliest as entry and absolute latest as exit
+            entryRecord = sortedRecs[0];
+            exitRecord = sortedRecs[sortedRecs.length - 1];
+          }
+
+          // Check for duplicate or multiple records
+          if (sortedRecs.length > 2) {
+            const entryTime = entryRecord ? entryRecord.time.substring(0, 5) : '—';
+            const exitTime = exitRecord ? exitRecord.time.substring(0, 5) : '—';
 
             processedRows.push({
               date, day: dayName, shift: shift.shift,
               scheduled: `${shift.entry} - ${shift.exit}`,
               entry: entryTime, exit: exitTime,
-              delay: this.calculateDelay(entryTime, shift.entry, tolerance),
-              notes: `${shiftRecords.length} registros detectados`,
+              delay: entryTime !== '—' ? this.calculateDelay(entryTime, shift.entry, tolerance) : null,
+              notes: `${sortedRecs.length} marcaciones en este turno`,
               status: 'warning',
-              _duplicateCount: shiftRecords.length
+              _duplicateCount: sortedRecs.length
             });
             continue;
           }
