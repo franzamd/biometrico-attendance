@@ -17,9 +17,21 @@ export class DataProcessor {
     // Try to parse line by line from the full text
     const lines = fullText.split('\n');
     
-    // Pattern: YYYY-MM-DD HH:MM:SS followed by In or Out
+    // Pattern: YYYY-MM-DD HH:MM:SS followed by In, Out, Break, Return, Lunch, Overtime In, Overtime Out, etc.
     const dateTimePattern = /(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})/;
-    const typePattern = /\b(In|Out)\b/i;
+    const typePattern = /\b(In|Out|Break|Return|Lunch|Overtime\s+In|Overtime\s+Out)\b/i;
+
+    const mapType = (rawType) => {
+      if (!rawType) return 'Unknown';
+      const t = rawType.toLowerCase();
+      if (t.includes('in') || t.includes('return')) {
+        return 'In';
+      }
+      if (t.includes('out') || t.includes('break') || t.includes('lunch')) {
+        return 'Out';
+      }
+      return 'Unknown';
+    };
 
     // Sometimes the text items come as separate pieces, so we need to
     // reconstruct lines by grouping items with similar Y coordinates
@@ -34,7 +46,7 @@ export class DataProcessor {
         records.push({
           date: dateMatch[1],
           time: dateMatch[2],
-          type: typeMatch ? (typeMatch[1].toLowerCase() === 'in' ? 'In' : 'Out') : 'Unknown',
+          type: typeMatch ? mapType(typeMatch[1]) : 'Unknown',
           raw: lineText.trim()
         });
       }
@@ -42,13 +54,13 @@ export class DataProcessor {
 
     // If line grouping didn't work well, try parsing the full text
     if (records.length === 0) {
-      const regex = /(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})\s*(In|Out)?/gi;
+      const regex = /(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})\s*(In|Out|Break|Return|Lunch|Overtime\s+In|Overtime\s+Out)?/gi;
       let match;
       while ((match = regex.exec(fullText)) !== null) {
         records.push({
           date: match[1],
           time: match[2],
-          type: match[3] ? (match[3].toLowerCase() === 'in' ? 'In' : 'Out') : 'Unknown',
+          type: mapType(match[3]),
           raw: match[0]
         });
       }
